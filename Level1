@@ -1,0 +1,110 @@
+import random
+import json
+from IPython.display import display, HTML
+
+class Student:
+    def __init__(self, name, preferences=None, required_table=None):
+        self.name = name
+        self.preferences = preferences if preferences is not None else []
+        self.required_table = required_table
+
+    def __str__(self):
+        return self.name
+
+def create_tables(students, table_size):
+    random.shuffle(students)
+    num_tables = (len(students) + table_size - 1) // table_size  # Calculate the number of tables needed
+
+    tables = [[] for _ in range(num_tables)]
+    assigned_students = set()  # Keep track of assigned students
+
+    for student in students:
+        if student.required_table is not None:
+            table_index = student.required_table - 1
+            tables[table_index].append(student)
+            assigned_students.add(student)
+        elif student not in assigned_students:
+            # Find the table with the fewest students and add the current student to it
+            min_table_index = min(range(num_tables), key=lambda i: len(tables[i]))
+            if len(tables[min_table_index]) < table_size:
+                tables[min_table_index].append(student)
+                assigned_students.add(student)
+
+    return tables
+
+def load_students_from_file(filename):
+    try:
+        with open(filename, 'r') as file:
+            students_data = json.load(file)
+            students = [Student(name, data.get('preferences'), data.get('required_table')) for name, data in students_data.items()]
+            return students
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+def save_students_to_file(students, filename):
+    students_data = {student.name: {'preferences': student.preferences, 'required_table': student.required_table} for student in students}
+    with open(filename, 'w') as file:
+        json.dump(students_data, file)
+
+def display_tables(tables):
+    html = '<table>'
+    for i, table in enumerate(tables):
+        html += f'<tr><th colspan="2">Table {i + 1}</th></tr>'
+        for student in table:
+            html += f'<tr><td>{str(student)}</td></tr>'
+    html += '</table>'
+    
+    display(HTML(html))
+
+def get_integer_input(prompt):
+    while True:
+        user_input = input(prompt)
+        if user_input.isdigit():
+            return int(user_input)
+        else:
+            print("Invalid input. Please enter a valid integer.")
+
+
+def main():
+    filename = "student_data.json"
+    students = load_students_from_file(filename)
+
+    import_students = input("Do you want to mass import a list of students? (yes/no): ")
+    if import_students.lower() == "yes":
+        students_input = input("Enter a list of students separated by commas: ")
+        new_students = students_input.split(',')
+        students.extend([Student(name.strip()) for name in new_students])
+
+    while True:
+        student_name = input("Enter a student's name (or 'q' to quit): ")
+        if student_name == 'q':
+            break
+
+        preferences_input = input(f"Enter preferences for {student_name} (comma-separated table numbers, e.g., '1,2', or leave blank): ")
+        if not preferences_input:
+            preferences = []
+        else:
+            preferences = [int(p) for p in preferences_input.split(',')]
+
+        required_table_input = input(f"Enter the required table for {student_name} (leave blank if none): ")
+        if not required_table_input:
+            required_table = 0
+        else:
+            required_table = int(required_table_input)
+
+        student = Student(student_name, preferences, required_table)
+        students.append(student)
+
+    save_students_to_file(students, filename)
+
+    table_size = get_integer_input("Enter the table size: ")
+
+    # Calculate the number of tables needed based on the table size
+    num_tables = (len(students) + table_size - 1) // table_size
+
+    tables = create_tables(students, table_size)
+
+    display_tables(tables)
+
+if __name__ == "__main__":
+    main()
